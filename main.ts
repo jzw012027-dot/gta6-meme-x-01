@@ -11,9 +11,14 @@
 // the same bytes both times.
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const POST_FILE = "POST.json";
+// POST.json sits next to this script in the repository root. Resolve it
+// from the script's own location, never from the process working
+// directory: the house runs `node /bot/main.ts` from wherever it likes.
+const POST_PATH = join(dirname(fileURLToPath(import.meta.url)), POST_FILE);
 
 // An X post address: https://x.com/<handle>/status/<digits>
 // (twitter.com works too). The id is digits only.
@@ -25,12 +30,12 @@ function fail(message: string): never {
 }
 
 function readPostAddress(): string {
-  if (!existsSync(POST_FILE)) {
+  if (!existsSync(POST_PATH)) {
     fail("POST.json is missing from the repository root");
   }
   let parsed: unknown;
   try {
-    parsed = JSON.parse(readFileSync(POST_FILE, "utf8"));
+    parsed = JSON.parse(readFileSync(POST_PATH, "utf8"));
   } catch {
     fail("POST.json is not valid JSON");
   }
@@ -51,10 +56,10 @@ function main(): void {
   const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
   mkdirSync(outDir, { recursive: true });
   const target = join(outDir, POST_FILE);
-  copyFileSync(POST_FILE, target);
+  copyFileSync(POST_PATH, target);
   // Read both files back and compare: the house must receive the post's
   // address byte for byte as it stands in the repository.
-  if (!readFileSync(target).equals(readFileSync(POST_FILE))) {
+  if (!readFileSync(target).equals(readFileSync(POST_PATH))) {
     fail("the delivered POST.json differs from the repository's");
   }
   console.log(`delivered POST.json for ${url}`);
